@@ -89,7 +89,7 @@ if [[ ! -f "$shared_dir/.bootstrapped" ]]; then
     # Instalasi pertama selalu dimulai dari skema kosong. Ini juga memulihkan
     # percobaan bootstrap yang berhenti di tengah migrasi DDL MySQL.
     "${compose[@]}" run --rm app php artisan migrate:fresh --force --no-interaction
-    "${compose[@]}" run --rm app php artisan db:seed --class='Database\\Seeders\\ProductionBootstrapSeeder' --force --no-interaction
+    "${compose[@]}" run --rm app php artisan db:seed --force --no-interaction
     touch "$shared_dir/.bootstrapped"
     chmod 600 "$shared_dir/.bootstrapped"
 else
