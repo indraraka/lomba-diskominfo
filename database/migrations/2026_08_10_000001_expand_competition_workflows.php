@@ -112,7 +112,7 @@ return new class extends Migration
             $table->text('decision_reason')->nullable();
             $table->foreignId('decided_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
-            $table->unique(['competition_session_id', 'rank']);
+            $table->unique(['competition_session_id', 'rank'], 'placements_session_rank_unique');
         });
 
         Schema::create('competition_audit_logs', function (Blueprint $table) {

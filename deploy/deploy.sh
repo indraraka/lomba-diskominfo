@@ -85,11 +85,15 @@ if [[ -n "$old_app_id" ]]; then
     "${compose[@]}" exec -T app php artisan down --retry=30 --no-interaction
 fi
 
-"${compose[@]}" run --rm app php artisan migrate --force --no-interaction
 if [[ ! -f "$shared_dir/.bootstrapped" ]]; then
+    # Instalasi pertama selalu dimulai dari skema kosong. Ini juga memulihkan
+    # percobaan bootstrap yang berhenti di tengah migrasi DDL MySQL.
+    "${compose[@]}" run --rm app php artisan migrate:fresh --force --no-interaction
     "${compose[@]}" run --rm app php artisan db:seed --class='Database\\Seeders\\ProductionBootstrapSeeder' --force --no-interaction
     touch "$shared_dir/.bootstrapped"
     chmod 600 "$shared_dir/.bootstrapped"
+else
+    "${compose[@]}" run --rm app php artisan migrate --force --no-interaction
 fi
 
 "${compose[@]}" up -d --no-deps app

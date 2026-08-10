@@ -21,7 +21,7 @@ return new class extends Migration
             $table->json('eliminated_team_ids')->nullable();
             $table->timestamp('locked_at')->nullable();
             $table->timestamps();
-            $table->unique(['competition_session_id', 'number']);
+            $table->unique(['competition_session_id', 'number'], 'buzzer_rounds_session_number_unique');
         });
     }
 

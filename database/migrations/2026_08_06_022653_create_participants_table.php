@@ -20,7 +20,7 @@ return new class extends Migration
             $table->decimal('result_value', 14, 3)->nullable();
             $table->text('notes')->nullable();
             $table->timestamps();
-            $table->unique(['competition_session_id', 'name']);
+            $table->unique(['competition_session_id', 'name'], 'participants_session_name_unique');
         });
     }
 

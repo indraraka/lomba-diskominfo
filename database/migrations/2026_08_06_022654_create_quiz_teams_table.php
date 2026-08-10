@@ -22,7 +22,7 @@ return new class extends Migration
             $table->integer('score')->default(0);
             $table->timestamp('last_seen_at')->nullable();
             $table->timestamps();
-            $table->unique(['competition_session_id', 'name']);
+            $table->unique(['competition_session_id', 'name'], 'quiz_teams_session_name_unique');
         });
     }
 

@@ -21,7 +21,10 @@ return new class extends Migration
             $table->foreignId('winner_participant_id')->nullable()->constrained('participants')->nullOnDelete();
             $table->enum('state', ['pending', 'active', 'completed'])->default('pending');
             $table->timestamps();
-            $table->unique(['competition_session_id', 'round_number', 'match_number']);
+            $table->unique(
+                ['competition_session_id', 'round_number', 'match_number'],
+                'knockout_matches_session_round_match_unique',
+            );
         });
     }
 
