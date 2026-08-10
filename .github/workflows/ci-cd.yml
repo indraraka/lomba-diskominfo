@@ -46,12 +46,12 @@ jobs:
           php artisan key:generate --no-interaction
           touch database/database.sqlite
           php artisan migrate:fresh --no-interaction
-      - name: Run application tests
-        run: php artisan test
       - name: Build frontend
         run: |
           npm ci
           npm run build
+      - name: Run application tests
+        run: php artisan test
 
   image:
     name: Publish immutable container image
