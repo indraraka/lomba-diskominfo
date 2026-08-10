@@ -1,0 +1,10 @@
+[Unit]
+Description=Jadwal backup harian Lomba Diskominfo pukul 02.00 WIB
+
+[Timer]
+OnCalendar=*-*-* 19:00:00 UTC
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

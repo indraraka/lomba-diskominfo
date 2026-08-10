@@ -1,0 +1,17 @@
+.git
+.github
+.env
+.env.*
+node_modules
+vendor
+output
+.playwright-cli
+tmp
+storage/logs/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+public/build
+database/*.sqlite*
+*.tgz
+*.tar.gz

@@ -1,0 +1,5 @@
+# Tambahkan blok ini ke Caddyfile milik stack wa-gateway.
+lomba.indramayukab.go.id {
+	encode zstd gzip
+	reverse_proxy lomba-app:80
+}

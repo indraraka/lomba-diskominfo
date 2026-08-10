@@ -1,0 +1,13 @@
+import AppShell from '@/Components/AppShell';
+import RulesGuide from '@/Components/RulesGuide';
+import { Head, Link, router } from '@inertiajs/react';
+import { ArrowLeft, CalendarDays, ExternalLink, MapPin, Play, Settings2, UsersRound, Video } from 'lucide-react';
+
+export default function Show({ competition, sessions }) {
+    return <AppShell title={competition.name} eyebrow={competition.is_official?'PROFIL RESMI':competition.type==='quiz'?'CERDAS CERMAT':'LOMBA UMUM'} actions={<><Link className="btn btn-ghost" href="/dashboard"><ArrowLeft size={17}/> Dashboard</Link>{competition.is_official&&<button className="btn btn-outline" onClick={()=>router.post(route('competitions.clone',competition.id))}>Kloning sebagai kustom</button>}<Link className="btn btn-outline" href={route('competitions.edit',competition.id)}><Settings2 size={17}/> Edit</Link></>}>
+        <Head title={competition.name}/>
+        <div className="detail-grid"><section className="panel detail-main">{competition.video_url&&<a className="video-guide-card" href={competition.video_url} target="_blank" rel="noreferrer"><span><Video size={22}/></span><div><small>CONTOH VIDEO LOMBA</small><strong>Tonton panduan sebelum membaca aturan</strong><em>{competition.video_url}</em></div><b>Buka video <ExternalLink size={16}/></b></a>}<p className="lead">{competition.description || 'Belum ada deskripsi.'}</p><div className="detail-facts"><div><UsersRound/><span>Peserta</span><strong>{competition.rules?.category||'Lomba'}</strong></div><div><CalendarDays/><span>Jadwal</span><strong>{competition.schedule_text||'—'}</strong></div><div><MapPin/><span>Lokasi & PIC</span><strong>{competition.venue||'—'} · {competition.person_in_charge||'—'}</strong></div></div><RulesGuide rules={competition.rules}/><button className="btn btn-primary btn-large detail-start" onClick={()=>router.post(route('sessions.store',competition.id))}><Play size={20}/> Siapkan sesi baru</button></section>
+            <aside className="panel"><div className="panel-head"><h2>Riwayat sesi</h2><span>{sessions.length}</span></div><p className="format-callout">Format: <strong>{competition.type==='quiz'?'Sistem poin':competition.general_format==='knockout'?'Sistem gugur':'Standar / peringkat'}</strong></p>{sessions.length===0?<p className="muted">Belum ada sesi yang dijalankan.</p>:<div className="session-list">{sessions.map(s=><Link href={route('sessions.control',s.id)} key={s.id}><div><strong>{s.code}</strong><span>{new Date(s.created_at).toLocaleString('id-ID')}</span></div><span className={`status-dot ${s.state==='finished'?'archived':'active'}`}>{s.state}</span></Link>)}</div>}</aside>
+        </div>
+    </AppShell>;
+}

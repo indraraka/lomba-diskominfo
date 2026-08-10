@@ -1,0 +1,128 @@
+name: CI/CD
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Tag image GHCR untuk deploy/rollback; kosong berarti build commit saat ini, atau gunakan previous"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: Test, build, and secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with:
+          php-version: "8.4"
+          extensions: mbstring, pdo_sqlite, intl, zip, bcmath
+          coverage: none
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Validate Composer and formatting
+        run: |
+          composer validate --strict
+          ./vendor/bin/pint --test
+      - name: Prepare test database
+        run: |
+          cp .env.example .env
+          php artisan key:generate --no-interaction
+          touch database/database.sqlite
+          php artisan migrate:fresh --no-interaction
+      - name: Run application tests
+        run: php artisan test
+      - name: Build frontend
+        run: |
+          npm ci
+          npm run build
+
+  image:
+    name: Publish immutable container image
+    if: ${{ github.event_name != 'pull_request' && inputs.image_tag == '' }}
+    needs: ci
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          push: true
+          build-args: VCS_REF=${{ github.sha }}
+          tags: |
+            ghcr.io/indraraka/lomba-diskominfo:${{ github.sha }}
+            ghcr.io/indraraka/lomba-diskominfo:main
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy to wa-gateway VM
+    if: >-
+      ${{ always() && github.event_name != 'pull_request' && vars.DEPLOY_ENABLED == 'true' &&
+          needs.ci.result == 'success' &&
+          (needs.image.result == 'success' || needs.image.result == 'skipped') }}
+    needs: [ci, image]
+    runs-on: ubuntu-latest
+    environment: production
+    concurrency:
+      group: lomba-production
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Configure pinned SSH connection
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "${{ secrets.VM_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+      - name: Transfer release manifest and deploy image
+        env:
+          VM_HOST: ${{ secrets.VM_HOST }}
+          VM_USER: ${{ secrets.VM_USER }}
+          REQUESTED_IMAGE_TAG: ${{ inputs.image_tag || github.sha }}
+          RELEASE_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$REQUESTED_IMAGE_TAG" =~ ^[A-Za-z0-9._-]{1,128}$ ]] || { echo "Tag image tidak valid"; exit 1; }
+          [[ "$RELEASE_ID" =~ ^[0-9]+-[0-9]+$ ]] || exit 1
+          key="$HOME/.ssh/deploy_key"
+          ssh_opts=(-i "$key" -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts")
+          tar -czf /tmp/lomba-release.tgz compose.production.yml deploy
+          scp "${ssh_opts[@]}" /tmp/lomba-release.tgz "$VM_USER@$VM_HOST:/tmp/lomba-release-$RELEASE_ID.tgz"
+          quoted_tag="$(printf '%q' "$REQUESTED_IMAGE_TAG")"
+          quoted_release="$(printf '%q' "$RELEASE_ID")"
+          ssh "${ssh_opts[@]}" "$VM_USER@$VM_HOST" "
+            set -Eeuo pipefail
+            release_dir=\"\$HOME/lomba-diskominfo/releases/$quoted_release\"
+            mkdir -p \"\$release_dir\"
+            tar -xzf /tmp/lomba-release-$quoted_release.tgz -C \"\$release_dir\"
+            rm -f /tmp/lomba-release-$quoted_release.tgz
+            chmod +x \"\$release_dir/deploy/deploy.sh\" \"\$release_dir/deploy/backup.sh\"
+            DEPLOY_ROOT=\"\$HOME/lomba-diskominfo\" \"\$release_dir/deploy/deploy.sh\" $quoted_tag \"\$release_dir\"
+          "

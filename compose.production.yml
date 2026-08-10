@@ -1,0 +1,69 @@
+name: lomba-diskominfo
+
+services:
+  app:
+    image: ${APP_IMAGE:?APP_IMAGE wajib diisi dengan image GHCR berbasis commit SHA}
+    restart: unless-stopped
+    env_file:
+      - ${APP_ENV_FILE:?APP_ENV_FILE wajib menunjuk ke .env production di VM}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    expose:
+      - "80"
+    volumes:
+      - app-storage:/var/www/html/storage/app
+      - branding-data:/var/www/html/public/uploads/branding
+    networks:
+      default: {}
+      proxy:
+        aliases:
+          - lomba-app
+    mem_limit: 1024m
+
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    command:
+      - --innodb-buffer-pool-size=256M
+      - --max-connections=100
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE:?DB_DATABASE wajib diisi}
+      MYSQL_USER: ${DB_USERNAME:?DB_USERNAME wajib diisi}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD wajib diisi}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?DB_ROOT_PASSWORD wajib diisi}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    mem_limit: 768m
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 192mb --maxmemory-policy noeviction
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    mem_limit: 256m
+
+networks:
+  proxy:
+    external: true
+    name: wa-gateway_default
+
+volumes:
+  app-storage:
+  branding-data:
+  mysql-data:
+  redis-data:
