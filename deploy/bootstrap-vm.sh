@@ -20,6 +20,7 @@ touch "/home/$deploy_user/.ssh/authorized_keys"
 grep -qxF "$deploy_public_key" "/home/$deploy_user/.ssh/authorized_keys" || printf '%s\n' "$deploy_public_key" >> "/home/$deploy_user/.ssh/authorized_keys"
 chown "$deploy_user:$deploy_user" "/home/$deploy_user/.ssh/authorized_keys"
 chmod 600 "/home/$deploy_user/.ssh/authorized_keys"
+install -d -m 750 -o "$deploy_user" -g "$deploy_user" "$deploy_root"
 install -d -m 700 -o "$deploy_user" -g "$deploy_user" "$shared_dir" "$shared_dir/backups" "$deploy_root/releases"
 
 if [[ ! -f "$shared_dir/.env" ]]; then
